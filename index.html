@@ -265,6 +265,7 @@ function BharatLens() {
   var _sq = useState(""); var searchQuery = _sq[0]; var setSearchQuery = _sq[1];
   var _lo = useState(false); var loading = _lo[0]; var setLoading = _lo[1];
   var _an = useState(false); var analyzing = _an[0]; var setAnalyzing = _an[1];
+  var _ra = useState(null); var retryInfo = _ra[0]; var setRetryInfo = _ra[1];
   var _er = useState(""); var error = _er[0]; var setError = _er[1];
 
   useEffect(function() { localStorage.setItem("bl_newskey", newsKey); }, [newsKey]);
@@ -279,17 +280,39 @@ function BharatLens() {
     }).catch(function(err) { setError("News fetch failed: " + err.message); setLoading(false); });
   }
 
-  function analyzeStory() {
+function sleep(ms) { return new Promise(function(resolve) { setTimeout(resolve, ms); }); }
+
+async function analyzeWith5WRetry(story, geminiKey, onAttempt) {
+  var maxAttempts = 8;
+  var delay = 1500; // starts at 1.5s, doubles each retry, capped below
+  for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      if (onAttempt) onAttempt(attempt, maxAttempts);
+      return await analyzeWith5W(story, geminiKey);
+    } catch (err) {
+      var isOverloaded = err.message.indexOf("503") !== -1 || err.message.toLowerCase().indexOf("overload") !== -1 || err.message.toLowerCase().indexOf("high demand") !== -1;
+      var isRateLimited = err.message.indexOf("429") !== -1;
+      var canRetry = isOverloaded || isRateLimited;
+      if (!canRetry || attempt === maxAttempts) throw err;
+      await sleep(delay);
+      delay = Math.min(delay * 1.7, 12000); // cap at 12s between tries
+    }
+  }
+}
+
+function analyzeStory() {
     if (!geminiKey) { setShowSettings(true); setError("Please add your Gemini API key first"); return; }
     if (!selectedStory) return;
-    setAnalyzing(true); setError("");
-    analyzeWith5W(selectedStory, geminiKey).then(function(analysis) {
+    setAnalyzing(true); setError(""); setRetryInfo(null);
+    analyzeWith5WRetry(selectedStory, geminiKey, function(attempt, max) {
+      if (attempt > 1) setRetryInfo({ attempt: attempt, max: max });
+    }).then(function(analysis) {
       var updated = Object.assign({}, selectedStory, analysis, { aiAnalyzed: true });
       setSelectedStory(updated);
       setStories(function(prev) { return prev.map(function(s) { return s.id === updated.id ? updated : s; }); });
-      setAnalyzing(false);
+      setAnalyzing(false); setRetryInfo(null);
     }).catch(function(err) {
-      setError("AI analysis failed: " + err.message); setAnalyzing(false);
+      setError("AI analysis failed after multiple attempts: " + err.message); setAnalyzing(false); setRetryInfo(null);
     });
   }
 
@@ -367,7 +390,12 @@ function BharatLens() {
                 padding: "8px 16px", fontSize: 12, fontWeight: 700, backgroundColor: C.saffron, color: C.white,
                 border: "none", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0
               }}>🧠 Analyze with AI</button>}
-              {analyzing && <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}><Spinner size={16} /><span style={{ fontSize: 12, color: C.muted }}>Analyzing...</span></div>}
+              {analyzing && <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <Spinner size={16} />
+                <span style={{ fontSize: 12, color: C.muted }}>
+                  {retryInfo ? "Servers busy — retrying (" + retryInfo.attempt + "/" + retryInfo.max + ")..." : "Analyzing..."}
+                </span>
+              </div>}
               {selectedStory.aiAnalyzed && !analyzing && <span style={{ fontSize: 11, padding: "6px 12px", backgroundColor: "#ECFDF5", color: C.teal, borderRadius: 6, fontWeight: 600, flexShrink: 0 }}>✅ AI Analyzed</span>}
             </div>
           </div>
