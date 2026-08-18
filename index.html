@@ -12,206 +12,195 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Inter', -apple-system, sans-serif; background: #F7F7F8; }
-    input:focus { outline: none; }
+    input:focus, textarea:focus { outline: none; }
     button { font-family: inherit; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease-out; }
   </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState } = React;
+const { useState, useEffect, useCallback } = React;
 
-const COLORS = {
+const C = {
   navy: "#1A1A2E", saffron: "#E94F37", teal: "#0E8388", cream: "#F7F7F8",
   white: "#FFFFFF", muted: "#8A8A9A", cardBg: "#F0F4F8", darkCard: "#232340",
   border: "#E2E5EA", lightText: "#C8C8D0",
 };
 
-const sampleStories = [
-  {
-    id: 1, category: "ECONOMY",
-    headline: "India's GDP Growth Surges to 7.2% in Q2 FY27",
-    source: "Economic Times", time: "2 hours ago",
-    what: "India's GDP grew at 7.2% in Q2 FY27, exceeding RBI's projection of 6.8%. Manufacturing and services sectors led the expansion, with manufacturing growing at 9.1% — its fastest pace in 11 quarters.",
-    when: [
-      { date: "Aug 14, 2026", event: "NSO releases Q2 FY27 GDP advance estimates" },
-      { date: "Aug 10, 2026", event: "RBI maintains repo rate at 6.25%, cites growth optimism" },
-      { date: "Jul 28, 2026", event: "PMI data signals manufacturing expansion for 14th consecutive month" },
-      { date: "Jun 15, 2026", event: "World Bank revises India growth forecast upward to 7.0%" },
-      { date: "May 31, 2026", event: "Q1 FY27 GDP came in at 6.9%, beating estimates" },
-    ],
-    how: [
-      { factor: "Manufacturing Boom", detail: "PLI schemes across 14 sectors drove ₹1.2L crore in new capex. Electronics and pharma exports surged 23% YoY.", confidence: 92 },
-      { factor: "Services Resilience", detail: "IT services stabilized after 2025 slowdown. Domestic digital payments crossed 18B monthly transactions.", confidence: 88 },
-      { factor: "Rural Recovery", detail: "Normal monsoon + MSP hikes boosted rural demand. FMCG rural volume growth hit 8.4%.", confidence: 85 },
-      { factor: "Global Tailwinds", detail: "US-China trade friction redirected $47B in FDI toward India in H1 2026.", confidence: 78 },
-    ],
-    who: [
-      { name: "Nirmala Sitharaman", role: "Finance Minister", stance: "Called it 'validation of structural reforms'. Hinted at capex boost in supplementary budget.", sentiment: "positive" },
-      { name: "Shaktikanta Das", role: "RBI Governor", stance: "Cautioned against 'growth exuberance'. Flagged food inflation as persistent risk.", sentiment: "cautious" },
-      { name: "Raghuram Rajan", role: "Former RBI Governor", stance: "Questioned GDP methodology. Urged focus on employment quality over headline numbers.", sentiment: "skeptical" },
-      { name: "IMF", role: "International body", stance: "Acknowledged India as fastest-growing large economy. Maintained 6.9% FY27 forecast.", sentiment: "neutral" },
-    ],
-    why: {
-      summary: "India's GDP surge reflects a convergence of supply-side reforms (PLI, infrastructure push) meeting recovering demand (rural + urban). However, the growth is structurally uneven — formal sector thriving while informal economy and employment lag. The sustainability hinges on three factors:",
-      deepFactors: [
-        { title: "Reform Payoff Cycle", detail: "PLI schemes launched 2020-22 are now in production phase. This is a 3-5 year cycle — the current bump is expected but may plateau by FY28." },
-        { title: "China+1 Dividend", detail: "India is the primary beneficiary of supply chain diversification. But this is competitive — Vietnam and Indonesia are also gaining. India's edge is scale, not inevitability." },
-        { title: "Consumption vs Investment", detail: "Growth is investment-led (govt capex + FDI), not consumption-led. For durability, household spending must pick up — which needs employment growth in the formal sector." },
-      ],
-      biasNote: "Coverage skew: Business outlets emphasize the positive headline. Opposition-aligned outlets highlight employment data gaps. International outlets focus on India vs China narrative."
-    }
-  },
-  {
-    id: 2, category: "GEOPOLITICS",
-    headline: "India Navigates New EU Carbon Border Tax on Steel Exports",
-    source: "Mint", time: "5 hours ago",
-    what: "The EU's Carbon Border Adjustment Mechanism (CBAM) enters its penalty phase in October 2026, imposing carbon tariffs on Indian steel, aluminum, and cement exports worth ~€4.2B annually. India calls it 'unilateral climate protectionism'.",
-    when: [
-      { date: "Aug 12, 2026", event: "EU confirms October 1 enforcement date for CBAM penalties" },
-      { date: "Jul 20, 2026", event: "India files formal objection at WTO calling CBAM discriminatory" },
-      { date: "Jun 2026", event: "Indian steel companies begin submitting emissions data to EU registry" },
-      { date: "Jan 2026", event: "CBAM transitional reporting period ends" },
-      { date: "Oct 2023", event: "CBAM transitional phase began" },
-    ],
-    how: [
-      { factor: "Direct Cost Impact", detail: "Indian steel faces €85-120/tonne carbon adjustment. This erodes the 15-20% cost advantage Indian exporters have over EU producers.", confidence: 95 },
-      { factor: "Trade Diversion", detail: "Some Indian steel may reroute to non-EU markets (Middle East, Africa) but at lower margins.", confidence: 82 },
-      { factor: "Green Steel Push", detail: "Tata Steel, JSW accelerating hydrogen-based steelmaking to qualify for CBAM exemptions by 2028-29.", confidence: 75 },
-      { factor: "WTO Challenge", detail: "India's WTO case argues CBAM violates MFN principles. Legal experts give it 40-50% success odds.", confidence: 60 },
-    ],
-    who: [
-      { name: "Piyush Goyal", role: "Commerce Minister", stance: "Called CBAM 'green protectionism'. Exploring retaliatory measures.", sentiment: "negative" },
-      { name: "T.V. Narendran", role: "Tata Steel CEO", stance: "Accelerating green steel timeline. Sees long-term opportunity in premium green products.", sentiment: "cautious" },
-      { name: "EU Commission", role: "Policy body", stance: "Defended CBAM as climate-neutral, non-discriminatory measure.", sentiment: "neutral" },
-    ],
-    why: {
-      summary: "CBAM represents the first major instance of climate policy becoming trade policy. For India, it's a structural challenge — the economy's energy mix is still 70% fossil-fuel dependent. The response will shape India's industrial strategy for a decade.",
-      deepFactors: [
-        { title: "Energy Transition Speed", detail: "India's green hydrogen mission targets 5 MT by 2030, but industrial adoption lags. Steel decarbonization needs $30-50B in investment." },
-        { title: "North-South Climate Divide", detail: "India frames CBAM as developed nations externalizing climate costs. This strengthens the Global South coalition but may not win at WTO." },
-        { title: "Competitive Positioning", detail: "Early movers on green steel (Tata, JSW) may gain EU market share. Laggards risk permanent exclusion from premium markets." },
-      ],
-      biasNote: "Indian outlets frame as trade aggression. European outlets frame as climate necessity. Business outlets focus on cost impact."
-    }
-  },
-  {
-    id: 3, category: "TECHNOLOGY",
-    headline: "India's Digital Public Infrastructure Model Adopted by 12 More Nations",
-    source: "Business Standard", time: "8 hours ago",
-    what: "Twelve additional countries across Africa and Southeast Asia have formally adopted India's DPI stack (Aadhaar-like ID, UPI-like payments, DigiLocker-like credentials). This brings the total to 28 nations using India-origin digital infrastructure.",
-    when: [], how: [], who: [],
-    why: { summary: "", deepFactors: [], biasNote: "" }
-  },
-];
-
-const WTabs = ["what", "when", "how", "who", "why"];
-const WLabels = { what: "What happened", when: "When — Timeline", how: "How it happened", who: "Who's involved", why: "Why it matters" };
-const WIcons = { what: "📰", when: "📅", how: "⚙️", who: "👥", why: "🧠" };
-
-function SentimentDot({ sentiment }) {
-  const colors = { positive: "#22C55E", cautious: "#F59E0B", skeptical: "#EF4444", negative: "#EF4444", neutral: "#8A8A9A" };
-  return React.createElement("span", { style: { display: "inline-block", width: 8, height: 8, borderRadius: "50%", backgroundColor: colors[sentiment] || colors.neutral, marginRight: 6 } });
+async function fetchNews(query, apiKey) {
+  const url = "https://newsdata.io/api/1/latest?apikey=" + apiKey + "&q=" + encodeURIComponent(query) + "&country=in&language=en&size=5";
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("News API error: " + res.status);
+  const data = await res.json();
+  if (data.status !== "success") throw new Error(data.results?.message || "News fetch failed");
+  return (data.results || []).filter(function(a) { return a.title && a.description; }).map(function(a, i) {
+    return {
+      id: i + 1,
+      category: (a.category && a.category[0]) ? a.category[0].toUpperCase() : "INDIA",
+      headline: a.title,
+      source: a.source_name || a.source_id || "Unknown",
+      time: a.pubDate ? timeAgo(a.pubDate) : "Recently",
+      description: a.description || "",
+      content: a.content || a.description || "",
+      link: a.link || "",
+      what: a.description || "",
+      when: [], how: [], who: [],
+      why: { summary: "", deepFactors: [], biasNote: "" },
+      aiAnalyzed: false,
+    };
+  });
 }
 
-function ConfidenceBar({ value }) {
-  return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 4 } },
-    React.createElement("div", { style: { flex: 1, height: 4, borderRadius: 2, backgroundColor: COLORS.border } },
-      React.createElement("div", { style: { width: value + "%", height: "100%", borderRadius: 2, backgroundColor: value > 85 ? COLORS.teal : value > 70 ? "#F59E0B" : COLORS.muted } })
-    ),
-    React.createElement("span", { style: { fontSize: 11, color: COLORS.muted, minWidth: 30 } }, value + "%")
-  );
+function timeAgo(dateStr) {
+  var diff = Date.now() - new Date(dateStr).getTime();
+  var hrs = Math.floor(diff / 3600000);
+  if (hrs < 1) return "Just now";
+  if (hrs < 24) return hrs + "h ago";
+  return Math.floor(hrs / 24) + "d ago";
 }
 
-function EmptyState({ label }) {
-  return <div style={{ padding: "40px 20px", textAlign: "center", color: COLORS.muted, fontSize: 14 }}>
-    <div style={{ fontSize: 32, marginBottom: 8 }}>🔄</div>{label}
+async function analyzeWith5W(story, geminiKey) {
+  var prompt = 'You are BharatLens, an AI news analyst for India. Analyze this news story and return a JSON object with the 5W deep analysis. Be specific, factual, and India-focused.\n\nHEADLINE: ' + story.headline + '\nSOURCE: ' + story.source + '\nCONTENT: ' + story.content.substring(0, 2000) + '\n\nReturn ONLY valid JSON (no markdown, no backticks) in this exact format:\n{"what": "A clear 3-4 sentence summary of what happened, with key facts and numbers", "when": [{"date": "Date string", "event": "What happened on this date"}], "how": [{"factor": "Factor name", "detail": "1-2 sentence explanation", "confidence": 85}], "who": [{"name": "Person/Org name", "role": "Their role", "stance": "Their position on this", "sentiment": "positive|cautious|neutral|negative|skeptical"}], "why": {"summary": "2-3 sentences on why this matters for India", "deepFactors": [{"title": "Factor title", "detail": "2-3 sentence deep analysis"}], "biasNote": "1 sentence on how different outlets might frame this differently"}}\n\nRules:\n- "when" should have 3-5 timeline entries with plausible dates leading up to this story\n- "how" should have 3-4 causal factors with confidence scores (60-95)\n- "who" should have 3-4 key stakeholders\n- "why" should have 2-3 deep factors\n- Be specific to India. Use real names of Indian officials, companies, policies where relevant\n- Confidence scores: 90+ for well-established facts, 70-89 for likely factors, 60-69 for speculative';
+
+  var res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + geminiKey, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+    })
+  });
+  if (!res.ok) throw new Error("Gemini API error: " + res.status);
+  var data = await res.json();
+  var text = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text || "";
+  var cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+  return JSON.parse(cleaned);
+}
+
+var WTabs = ["what", "when", "how", "who", "why"];
+var WLabels = { what: "What happened", when: "When — Timeline", how: "How it happened", who: "Who's involved", why: "Why it matters" };
+var WIcons = { what: "📰", when: "📅", how: "⚙️", who: "👥", why: "🧠" };
+
+function Spinner(props) {
+  var size = props.size || 20;
+  return <div style={{ width: size, height: size, border: "3px solid " + C.border, borderTopColor: C.saffron, borderRadius: "50%", animation: "spin 0.8s linear infinite", display: "inline-block" }} />;
+}
+
+function SentimentDot(props) {
+  var colors = { positive: "#22C55E", cautious: "#F59E0B", skeptical: "#EF4444", negative: "#EF4444", neutral: "#8A8A9A" };
+  return <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", backgroundColor: colors[props.sentiment] || colors.neutral, marginRight: 6 }} />;
+}
+
+function ConfidenceBar(props) {
+  var v = props.value;
+  return <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+    <div style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: C.border }}>
+      <div style={{ width: v + "%", height: "100%", borderRadius: 2, backgroundColor: v > 85 ? C.teal : v > 70 ? "#F59E0B" : C.muted, transition: "width 0.5s" }} />
+    </div>
+    <span style={{ fontSize: 11, color: C.muted, minWidth: 30 }}>{v}%</span>
   </div>;
 }
 
-function WhatTab({ story }) {
-  return <div style={{ padding: "20px 0" }}>
-    <p style={{ fontSize: 15, lineHeight: 1.7, color: COLORS.navy, margin: 0 }}>{story.what}</p>
-    <div style={{ marginTop: 16, padding: "12px 16px", backgroundColor: COLORS.cardBg, borderRadius: 8, display: "flex", gap: 16, flexWrap: "wrap" }}>
-      <span style={{ fontSize: 12, color: COLORS.muted }}>Source: <strong style={{ color: COLORS.navy }}>{story.source}</strong></span>
-      <span style={{ fontSize: 12, color: COLORS.muted }}>{story.time}</span>
-      <span style={{ fontSize: 12, color: COLORS.teal }}>12 related articles found</span>
+function AnalyzingState() {
+  return <div style={{ padding: "40px 20px", textAlign: "center", color: C.muted, fontSize: 14 }}>
+    <Spinner size={28} /><div style={{ marginTop: 12 }}>AI is analyzing this story...</div>
+    <div style={{ fontSize: 11, marginTop: 4 }}>Powered by Gemini Flash</div>
+  </div>;
+}
+
+function EmptyState(props) {
+  return <div style={{ padding: "40px 20px", textAlign: "center", color: C.muted, fontSize: 14 }}>
+    <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>{props.label}
+  </div>;
+}
+
+function WhatTab(props) {
+  var s = props.story;
+  return <div style={{ padding: "20px 0" }} className="fade-in">
+    <p style={{ fontSize: 15, lineHeight: 1.7, color: C.navy, margin: 0 }}>{s.what}</p>
+    <div style={{ marginTop: 16, padding: "12px 16px", backgroundColor: C.cardBg, borderRadius: 8, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+      <span style={{ fontSize: 12, color: C.muted }}>Source: <strong style={{ color: C.navy }}>{s.source}</strong></span>
+      <span style={{ fontSize: 12, color: C.muted }}>{s.time}</span>
+      {s.link && <a href={s.link} target="_blank" rel="noopener" style={{ fontSize: 12, color: C.teal, textDecoration: "none" }}>Read original ↗</a>}
     </div>
   </div>;
 }
 
-function WhenTab({ story }) {
-  if (!story.when.length) return <EmptyState label="Timeline data loading..." />;
-  return <div style={{ padding: "20px 0" }}>
-    {story.when.map((e, i) => (
-      <div key={i} style={{ display: "flex", gap: 16 }}>
+function WhenTab(props) {
+  var s = props.story;
+  if (props.analyzing) return <AnalyzingState />;
+  if (!s.when || !s.when.length) return <EmptyState label="Click 'Analyze with AI' to generate timeline" />;
+  return <div style={{ padding: "20px 0" }} className="fade-in">
+    {s.when.map(function(e, i) {
+      return <div key={i} style={{ display: "flex", gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 12 }}>
-          <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: i === 0 ? COLORS.saffron : COLORS.teal, flexShrink: 0, marginTop: 5 }} />
-          {i < story.when.length - 1 && <div style={{ width: 2, flex: 1, backgroundColor: COLORS.border, minHeight: 40 }} />}
+          <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: i === 0 ? C.saffron : C.teal, flexShrink: 0, marginTop: 5 }} />
+          {i < s.when.length - 1 && <div style={{ width: 2, flex: 1, backgroundColor: C.border, minHeight: 40 }} />}
         </div>
         <div style={{ paddingBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.saffron, letterSpacing: 0.5 }}>{e.date}</div>
-          <div style={{ fontSize: 14, color: COLORS.navy, marginTop: 4, lineHeight: 1.5 }}>{e.event}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.saffron, letterSpacing: 0.5 }}>{e.date}</div>
+          <div style={{ fontSize: 14, color: C.navy, marginTop: 4, lineHeight: 1.5 }}>{e.event}</div>
         </div>
-      </div>
-    ))}
+      </div>;
+    })}
   </div>;
 }
 
-function HowTab({ story }) {
-  if (!story.how.length) return <EmptyState label="Analysis loading..." />;
-  return <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: 14 }}>
-    {story.how.map((f, i) => (
-      <div key={i} style={{ padding: "14px 16px", backgroundColor: COLORS.white, border: "1px solid " + COLORS.border, borderRadius: 10 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.navy }}>{f.factor}</div>
-        <p style={{ fontSize: 13, color: COLORS.muted, margin: "6px 0 0", lineHeight: 1.6 }}>{f.detail}</p>
-        <div style={{ marginTop: 6 }}>
-          <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: COLORS.muted }}>AI Confidence</span>
-          <ConfidenceBar value={f.confidence} />
-        </div>
-      </div>
-    ))}
+function HowTab(props) {
+  var s = props.story;
+  if (props.analyzing) return <AnalyzingState />;
+  if (!s.how || !s.how.length) return <EmptyState label="Click 'Analyze with AI' to see causal factors" />;
+  return <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: 14 }} className="fade-in">
+    {s.how.map(function(f, i) {
+      return <div key={i} style={{ padding: "14px 16px", backgroundColor: C.white, border: "1px solid " + C.border, borderRadius: 10 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{f.factor}</div>
+        <p style={{ fontSize: 13, color: C.muted, margin: "6px 0 0", lineHeight: 1.6 }}>{f.detail}</p>
+        <div style={{ marginTop: 6 }}><span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: C.muted }}>AI Confidence</span><ConfidenceBar value={f.confidence} /></div>
+      </div>;
+    })}
   </div>;
 }
 
-function WhoTab({ story }) {
-  if (!story.who.length) return <EmptyState label="Stakeholder analysis loading..." />;
-  return <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: 12 }}>
-    {story.who.map((p, i) => (
-      <div key={i} style={{ display: "flex", gap: 14, padding: "14px 16px", backgroundColor: COLORS.white, border: "1px solid " + COLORS.border, borderRadius: 10 }}>
-        <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: COLORS.cardBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
-          {p.name.charAt(0)}
-        </div>
+function WhoTab(props) {
+  var s = props.story;
+  if (props.analyzing) return <AnalyzingState />;
+  if (!s.who || !s.who.length) return <EmptyState label="Click 'Analyze with AI' to see stakeholders" />;
+  return <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: 12 }} className="fade-in">
+    {s.who.map(function(p, i) {
+      return <div key={i} style={{ display: "flex", gap: 14, padding: "14px 16px", backgroundColor: C.white, border: "1px solid " + C.border, borderRadius: 10 }}>
+        <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: C.cardBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{p.name.charAt(0)}</div>
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.navy }}>{p.name}</span>
-            <span style={{ fontSize: 11, color: COLORS.muted }}>· {p.role}</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>{p.name}</span>
+            <span style={{ fontSize: 11, color: C.muted }}>· {p.role}</span>
           </div>
           <p style={{ fontSize: 13, color: "#444", margin: "6px 0 0", lineHeight: 1.5 }}>{p.stance}</p>
-          <div style={{ marginTop: 6, display: "flex", alignItems: "center" }}>
-            <SentimentDot sentiment={p.sentiment} />
-            <span style={{ fontSize: 11, color: COLORS.muted, textTransform: "capitalize" }}>{p.sentiment}</span>
-          </div>
+          <div style={{ marginTop: 6, display: "flex", alignItems: "center" }}><SentimentDot sentiment={p.sentiment} /><span style={{ fontSize: 11, color: C.muted, textTransform: "capitalize" }}>{p.sentiment}</span></div>
         </div>
-      </div>
-    ))}
+      </div>;
+    })}
   </div>;
 }
 
-function WhyTab({ story }) {
-  const w = story.why;
-  if (!w.summary) return <EmptyState label="Deep analysis loading..." />;
-  return <div style={{ padding: "20px 0" }}>
-    <p style={{ fontSize: 14, lineHeight: 1.7, color: COLORS.navy, margin: 0 }}>{w.summary}</p>
+function WhyTab(props) {
+  var s = props.story;
+  var w = s.why;
+  if (props.analyzing) return <AnalyzingState />;
+  if (!w || !w.summary) return <EmptyState label="Click 'Analyze with AI' for deep analysis" />;
+  return <div style={{ padding: "20px 0" }} className="fade-in">
+    <p style={{ fontSize: 14, lineHeight: 1.7, color: C.navy, margin: 0 }}>{w.summary}</p>
     <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-      {w.deepFactors.map((d, i) => (
-        <div key={i} style={{ padding: "14px 16px", backgroundColor: COLORS.darkCard, borderRadius: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.saffron }}>{d.title}</div>
-          <p style={{ fontSize: 13, color: COLORS.lightText, margin: "8px 0 0", lineHeight: 1.6 }}>{d.detail}</p>
-        </div>
-      ))}
+      {(w.deepFactors || []).map(function(d, i) {
+        return <div key={i} style={{ padding: "14px 16px", backgroundColor: C.darkCard, borderRadius: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.saffron }}>{d.title}</div>
+          <p style={{ fontSize: 13, color: C.lightText, margin: "8px 0 0", lineHeight: 1.6 }}>{d.detail}</p>
+        </div>;
+      })}
     </div>
     {w.biasNote && <div style={{ marginTop: 18, padding: "12px 16px", backgroundColor: "#FEF3C7", borderRadius: 8, borderLeft: "3px solid #F59E0B" }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: "#92400E", textTransform: "uppercase", letterSpacing: 1 }}>Bias Alert</div>
@@ -220,108 +209,197 @@ function WhyTab({ story }) {
   </div>;
 }
 
-function StoryCard({ story, onClick, isActive }) {
-  return <button onClick={onClick} style={{
+function StoryCard(props) {
+  var s = props.story; var isActive = props.isActive;
+  return <button onClick={props.onClick} style={{
     display: "block", width: "100%", textAlign: "left", cursor: "pointer",
-    padding: "16px 18px", backgroundColor: isActive ? COLORS.navy : COLORS.white,
-    border: "1px solid " + (isActive ? COLORS.navy : COLORS.border), borderRadius: 12,
-    transition: "all 0.2s", outline: "none",
+    padding: "16px 18px", backgroundColor: isActive ? C.navy : C.white,
+    border: "1px solid " + (isActive ? C.navy : C.border), borderRadius: 12, transition: "all 0.2s", outline: "none",
   }}>
-    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: isActive ? COLORS.saffron : COLORS.teal, marginBottom: 6 }}>{story.category}</div>
-    <div style={{ fontSize: 15, fontWeight: 700, color: isActive ? COLORS.white : COLORS.navy, lineHeight: 1.4 }}>{story.headline}</div>
-    <div style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 11, color: isActive ? "#9A9AB0" : COLORS.muted }}>
-      <span>{story.source}</span><span>·</span><span>{story.time}</span>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: isActive ? C.saffron : C.teal }}>{s.category}</span>
+      {s.aiAnalyzed && <span style={{ fontSize: 9, padding: "2px 6px", backgroundColor: isActive ? C.teal : C.cardBg, color: isActive ? C.white : C.teal, borderRadius: 4 }}>AI ✓</span>}
+    </div>
+    <div style={{ fontSize: 15, fontWeight: 700, color: isActive ? C.white : C.navy, lineHeight: 1.4, marginTop: 4 }}>{s.headline}</div>
+    <div style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 11, color: isActive ? "#9A9AB0" : C.muted }}>
+      <span>{s.source}</span><span>·</span><span>{s.time}</span>
     </div>
   </button>;
 }
 
+function SettingsModal(props) {
+  if (!props.show) return null;
+  return <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={props.onClose}>
+    <div style={{ backgroundColor: C.white, borderRadius: 16, padding: "32px", maxWidth: 480, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }} onClick={function(e) { e.stopPropagation(); }}>
+      <h3 style={{ fontSize: 20, fontWeight: 800, color: C.navy, marginBottom: 4 }}>⚙️ API Keys</h3>
+      <p style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Free keys — stored in your browser only.</p>
+      <label style={{ fontSize: 12, fontWeight: 700, color: C.navy, display: "block", marginBottom: 6 }}>
+        NewsData.io API Key <a href="https://newsdata.io/register" target="_blank" rel="noopener" style={{ fontSize: 11, color: C.teal, marginLeft: 8, textDecoration: "none" }}>Get free key ↗</a>
+      </label>
+      <input value={props.newsKey} onChange={function(e) { props.setNewsKey(e.target.value); }} placeholder="pub_xxxxxxxxxxxxxxxxxxxx"
+        style={{ width: "100%", padding: "10px 14px", fontSize: 14, border: "1px solid " + C.border, borderRadius: 8, marginBottom: 16, boxSizing: "border-box" }} />
+      <label style={{ fontSize: 12, fontWeight: 700, color: C.navy, display: "block", marginBottom: 6 }}>
+        Google Gemini API Key <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style={{ fontSize: 11, color: C.teal, marginLeft: 8, textDecoration: "none" }}>Get free key ↗</a>
+      </label>
+      <input value={props.geminiKey} onChange={function(e) { props.setGeminiKey(e.target.value); }} placeholder="AIzaSy..."
+        style={{ width: "100%", padding: "10px 14px", fontSize: 14, border: "1px solid " + C.border, borderRadius: 8, marginBottom: 20, boxSizing: "border-box" }} />
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <button onClick={props.onClose} style={{ padding: "10px 24px", fontSize: 14, fontWeight: 700, backgroundColor: C.navy, color: C.white, border: "none", borderRadius: 8, cursor: "pointer" }}>Save & Close</button>
+      </div>
+    </div>
+  </div>;
+}
+
 function BharatLens() {
-  const [selectedStory, setSelectedStory] = useState(sampleStories[0]);
-  const [activeW, setActiveW] = useState("what");
-  const [searchQuery, setSearchQuery] = useState("");
+  var _nk = useState(localStorage.getItem("bl_newskey") || ""); var newsKey = _nk[0]; var setNewsKey = _nk[1];
+  var _gk = useState(localStorage.getItem("bl_geminikey") || ""); var geminiKey = _gk[0]; var setGeminiKey = _gk[1];
+  var _ss = useState(false); var showSettings = _ss[0]; var setShowSettings = _ss[1];
+  var _st = useState([]); var stories = _st[0]; var setStories = _st[1];
+  var _sel = useState(null); var selectedStory = _sel[0]; var setSelectedStory = _sel[1];
+  var _aw = useState("what"); var activeW = _aw[0]; var setActiveW = _aw[1];
+  var _sq = useState(""); var searchQuery = _sq[0]; var setSearchQuery = _sq[1];
+  var _lo = useState(false); var loading = _lo[0]; var setLoading = _lo[1];
+  var _an = useState(false); var analyzing = _an[0]; var setAnalyzing = _an[1];
+  var _er = useState(""); var error = _er[0]; var setError = _er[1];
 
-  const tabContent = { what: <WhatTab story={selectedStory} />, when: <WhenTab story={selectedStory} />, how: <HowTab story={selectedStory} />, who: <WhoTab story={selectedStory} />, why: <WhyTab story={selectedStory} /> };
+  useEffect(function() { localStorage.setItem("bl_newskey", newsKey); }, [newsKey]);
+  useEffect(function() { localStorage.setItem("bl_geminikey", geminiKey); }, [geminiKey]);
 
-  return <div style={{ minHeight: "100vh", backgroundColor: COLORS.cream }}>
-    {/* Header */}
-    <header style={{ backgroundColor: COLORS.navy, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+  function searchNews(query) {
+    if (!newsKey) { setShowSettings(true); setError("Please add your NewsData.io API key first"); return; }
+    setLoading(true); setError(""); setStories([]); setSelectedStory(null);
+    fetchNews(query || "India", newsKey).then(function(results) {
+      if (!results.length) { setError("No articles found. Try a different search."); setLoading(false); return; }
+      setStories(results); setSelectedStory(results[0]); setActiveW("what"); setLoading(false);
+    }).catch(function(err) { setError("News fetch failed: " + err.message); setLoading(false); });
+  }
+
+  function analyzeStory() {
+    if (!geminiKey) { setShowSettings(true); setError("Please add your Gemini API key first"); return; }
+    if (!selectedStory) return;
+    setAnalyzing(true); setError("");
+    analyzeWith5W(selectedStory, geminiKey).then(function(analysis) {
+      var updated = Object.assign({}, selectedStory, analysis, { aiAnalyzed: true });
+      setSelectedStory(updated);
+      setStories(function(prev) { return prev.map(function(s) { return s.id === updated.id ? updated : s; }); });
+      setAnalyzing(false);
+    }).catch(function(err) {
+      setError("AI analysis failed: " + err.message); setAnalyzing(false);
+    });
+  }
+
+  function handleKeyDown(e) { if (e.key === "Enter" && searchQuery.trim()) searchNews(searchQuery.trim()); }
+
+  var keysConfigured = newsKey && geminiKey;
+
+  return <div style={{ minHeight: "100vh", backgroundColor: C.cream }}>
+    <SettingsModal show={showSettings} onClose={function() { setShowSettings(false); setError(""); }}
+      newsKey={newsKey} geminiKey={geminiKey} setNewsKey={setNewsKey} setGeminiKey={setGeminiKey} />
+
+    <header style={{ backgroundColor: C.navy, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: 22, fontWeight: 800, color: COLORS.white, letterSpacing: 2 }}>BHARATLENS</span>
-        <span style={{ fontSize: 10, color: COLORS.saffron, fontWeight: 600, padding: "2px 8px", border: "1px solid " + COLORS.saffron, borderRadius: 4, letterSpacing: 1 }}>BETA</span>
+        <span style={{ fontSize: 22, fontWeight: 800, color: C.white, letterSpacing: 2 }}>BHARATLENS</span>
+        <span style={{ fontSize: 10, color: C.saffron, fontWeight: 600, padding: "2px 8px", border: "1px solid " + C.saffron, borderRadius: 4, letterSpacing: 1 }}>LIVE</span>
       </div>
       <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-        <span style={{ fontSize: 12, color: "#9A9AB0" }}>Daily Briefing</span>
-        <span style={{ fontSize: 12, color: "#9A9AB0" }}>My Topics</span>
-        <div style={{ width: 30, height: 30, borderRadius: "50%", backgroundColor: COLORS.teal, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: COLORS.white, fontWeight: 700 }}>A</div>
+        <button onClick={function() { setShowSettings(true); }} style={{ fontSize: 12, color: keysConfigured ? "#9A9AB0" : C.saffron, backgroundColor: "transparent", border: "none", cursor: "pointer" }}>
+          {keysConfigured ? "⚙️ Settings" : "⚙️ Add API Keys"}
+        </button>
+        <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: keysConfigured ? "#22C55E" : C.saffron }} />
       </div>
     </header>
 
-    {/* Search */}
-    <div style={{ padding: "20px 24px", backgroundColor: COLORS.white, borderBottom: "1px solid " + COLORS.border }}>
+    <div style={{ padding: "20px 24px", backgroundColor: C.white, borderBottom: "1px solid " + C.border }}>
       <div style={{ maxWidth: 700, margin: "0 auto", position: "relative" }}>
-        <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder='Ask anything about India — "What is India doing about semiconductor manufacturing?"'
-          style={{ width: "100%", padding: "14px 18px 14px 44px", fontSize: 15, border: "2px solid " + COLORS.border, borderRadius: 12, backgroundColor: COLORS.cardBg, boxSizing: "border-box" }}
-        />
+        <input value={searchQuery} onChange={function(e) { setSearchQuery(e.target.value); }} onKeyDown={handleKeyDown}
+          placeholder='Search India news — try "GDP growth", "semiconductor", "ISRO"... (press Enter)'
+          style={{ width: "100%", padding: "14px 18px 14px 44px", fontSize: 15, border: "2px solid " + C.border, borderRadius: 12, backgroundColor: C.cardBg, boxSizing: "border-box" }} />
         <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", fontSize: 18 }}>🔍</span>
+        {loading && <div style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)" }}><Spinner size={18} /></div>}
       </div>
       <div style={{ maxWidth: 700, margin: "10px auto 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {["GDP Q2 results", "CBAM steel impact", "India DPI adoption", "Semiconductor policy"].map((t) => (
-          <button key={t} onClick={() => setSearchQuery(t)} style={{ padding: "5px 12px", fontSize: 11, color: COLORS.teal, backgroundColor: COLORS.white, border: "1px solid " + COLORS.border, borderRadius: 20, cursor: "pointer" }}>{t}</button>
-        ))}
+        {["India GDP", "Modi foreign policy", "ISRO mission", "UPI payments", "India semiconductor"].map(function(t) {
+          return <button key={t} onClick={function() { setSearchQuery(t); searchNews(t); }} style={{ padding: "5px 12px", fontSize: 11, color: C.teal, backgroundColor: C.white, border: "1px solid " + C.border, borderRadius: 20, cursor: "pointer" }}>{t}</button>;
+        })}
       </div>
     </div>
 
-    {/* Main */}
-    <div style={{ display: "flex", maxWidth: 1200, margin: "0 auto", padding: "24px", gap: 24, flexWrap: "wrap" }}>
-      {/* Story list */}
+    {error && <div style={{ maxWidth: 1200, margin: "12px auto 0", padding: "0 24px" }}>
+      <div style={{ padding: "10px 16px", backgroundColor: "#FEE2E2", borderRadius: 8, fontSize: 13, color: "#991B1B" }}>⚠️ {error}</div>
+    </div>}
+
+    {!stories.length && !loading && <div style={{ maxWidth: 600, margin: "80px auto", textAlign: "center", padding: "0 24px" }}>
+      <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
+      <h2 style={{ fontSize: 24, fontWeight: 800, color: C.navy, marginBottom: 8 }}>Welcome to BharatLens</h2>
+      <p style={{ fontSize: 15, color: C.muted, lineHeight: 1.6, marginBottom: 24 }}>
+        Search any India topic. Get live news. Then hit <strong>"Analyze with AI"</strong> for the full 5W deep dive — What, When, How, Who, Why.
+      </p>
+      {!keysConfigured && <button onClick={function() { setShowSettings(true); }} style={{
+        padding: "12px 28px", fontSize: 15, fontWeight: 700, backgroundColor: C.saffron, color: C.white,
+        border: "none", borderRadius: 10, cursor: "pointer"
+      }}>Set Up API Keys (Free) →</button>}
+      {keysConfigured && <p style={{ fontSize: 13, color: C.teal }}>✅ Keys configured — search a topic above!</p>}
+    </div>}
+
+    {stories.length > 0 && <div style={{ display: "flex", maxWidth: 1200, margin: "0 auto", padding: "24px", gap: 24, flexWrap: "wrap" }}>
       <div style={{ width: 340, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>Top Stories Today</div>
-        {sampleStories.map((story) => (
-          <StoryCard key={story.id} story={story} isActive={selectedStory.id === story.id}
-            onClick={() => { setSelectedStory(story); setActiveW("what"); }} />
-        ))}
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>{stories.length} Stories Found</div>
+        {stories.map(function(story) {
+          return <StoryCard key={story.id} story={story} isActive={selectedStory && selectedStory.id === story.id}
+            onClick={function() { setSelectedStory(story); setActiveW("what"); }} />;
+        })}
       </div>
 
-      {/* Deep Dive */}
-      <div style={{ flex: 1, minWidth: 300 }}>
-        <div style={{ backgroundColor: COLORS.white, borderRadius: 14, border: "1px solid " + COLORS.border, overflow: "hidden" }}>
-          <div style={{ padding: "20px 24px", borderBottom: "1px solid " + COLORS.border }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: COLORS.teal, marginBottom: 6 }}>{selectedStory.category}</div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: COLORS.navy, margin: 0, lineHeight: 1.4 }}>{selectedStory.headline}</h2>
+      {selectedStory && <div style={{ flex: 1, minWidth: 300 }}>
+        <div style={{ backgroundColor: C.white, borderRadius: 14, border: "1px solid " + C.border, overflow: "hidden" }}>
+          <div style={{ padding: "20px 24px", borderBottom: "1px solid " + C.border }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: C.teal, marginBottom: 6 }}>{selectedStory.category}</div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: C.navy, margin: 0, lineHeight: 1.4 }}>{selectedStory.headline}</h2>
+              </div>
+              {!selectedStory.aiAnalyzed && !analyzing && <button onClick={analyzeStory} style={{
+                padding: "8px 16px", fontSize: 12, fontWeight: 700, backgroundColor: C.saffron, color: C.white,
+                border: "none", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0
+              }}>🧠 Analyze with AI</button>}
+              {analyzing && <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}><Spinner size={16} /><span style={{ fontSize: 12, color: C.muted }}>Analyzing...</span></div>}
+              {selectedStory.aiAnalyzed && !analyzing && <span style={{ fontSize: 11, padding: "6px 12px", backgroundColor: "#ECFDF5", color: C.teal, borderRadius: 6, fontWeight: 600, flexShrink: 0 }}>✅ AI Analyzed</span>}
+            </div>
           </div>
 
-          {/* 5W Tabs */}
-          <div style={{ display: "flex", borderBottom: "1px solid " + COLORS.border, padding: "0 8px", overflowX: "auto" }}>
-            {WTabs.map((tab) => (
-              <button key={tab} onClick={() => setActiveW(tab)} style={{
+          <div style={{ display: "flex", borderBottom: "1px solid " + C.border, padding: "0 8px", overflowX: "auto" }}>
+            {WTabs.map(function(tab) {
+              return <button key={tab} onClick={function() { setActiveW(tab); }} style={{
                 padding: "14px 16px", fontSize: 13, fontWeight: activeW === tab ? 700 : 500,
-                color: activeW === tab ? COLORS.saffron : COLORS.muted,
+                color: activeW === tab ? C.saffron : C.muted,
                 backgroundColor: "transparent", border: "none", cursor: "pointer",
-                borderBottom: activeW === tab ? "3px solid " + COLORS.saffron : "3px solid transparent",
+                borderBottom: activeW === tab ? "3px solid " + C.saffron : "3px solid transparent",
                 whiteSpace: "nowrap", transition: "all 0.15s",
-              }}>
-                <span style={{ marginRight: 6 }}>{WIcons[tab]}</span>{WLabels[tab]}
-              </button>
-            ))}
+              }}><span style={{ marginRight: 6 }}>{WIcons[tab]}</span>{WLabels[tab]}</button>;
+            })}
           </div>
 
-          {/* Depth bar */}
           <div style={{ padding: "12px 24px 0", display: "flex", gap: 4 }}>
-            {WTabs.map((tab, i) => (
-              <div key={tab} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: WTabs.indexOf(activeW) >= i ? COLORS.saffron : COLORS.border, transition: "background-color 0.3s" }} />
-            ))}
+            {WTabs.map(function(tab, i) {
+              return <div key={tab} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: WTabs.indexOf(activeW) >= i ? C.saffron : C.border, transition: "background-color 0.3s" }} />;
+            })}
           </div>
-          <div style={{ padding: "2px 24px 0", fontSize: 10, color: COLORS.muted, textAlign: "right" }}>Depth: {WTabs.indexOf(activeW) + 1}/5</div>
+          <div style={{ padding: "2px 24px 0", fontSize: 10, color: C.muted, textAlign: "right" }}>Depth: {WTabs.indexOf(activeW) + 1}/5</div>
 
-          <div style={{ padding: "0 24px 24px" }}>{tabContent[activeW]}</div>
+          <div style={{ padding: "0 24px 24px" }}>
+            {activeW === "what" && <WhatTab story={selectedStory} />}
+            {activeW === "when" && <WhenTab story={selectedStory} analyzing={analyzing} />}
+            {activeW === "how" && <HowTab story={selectedStory} analyzing={analyzing} />}
+            {activeW === "who" && <WhoTab story={selectedStory} analyzing={analyzing} />}
+            {activeW === "why" && <WhyTab story={selectedStory} analyzing={analyzing} />}
+          </div>
         </div>
 
-        <div style={{ marginTop: 14, padding: "10px 16px", backgroundColor: COLORS.cardBg, borderRadius: 8, fontSize: 11, color: COLORS.muted, textAlign: "center" }}>
-          AI-generated analysis based on 500+ sources. Confidence scores reflect cross-reference density. Always verify with primary sources.
+        <div style={{ marginTop: 14, padding: "10px 16px", backgroundColor: C.cardBg, borderRadius: 8, fontSize: 11, color: C.muted, textAlign: "center" }}>
+          Live news via NewsData.io · AI analysis by Google Gemini Flash · Keys stored in your browser only
         </div>
-      </div>
-    </div>
+      </div>}
+    </div>}
   </div>;
 }
 
