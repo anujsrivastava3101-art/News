@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BharatLens — AI News Research for India</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.25.6/babel.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: #F7F7F8; }
+    input:focus { outline: none; }
+    button { font-family: inherit; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const COLORS = {
+  navy: "#1A1A2E", saffron: "#E94F37", teal: "#0E8388", cream: "#F7F7F8",
+  white: "#FFFFFF", muted: "#8A8A9A", cardBg: "#F0F4F8", darkCard: "#232340",
+  border: "#E2E5EA", lightText: "#C8C8D0",
+};
+
+const sampleStories = [
+  {
+    id: 1, category: "ECONOMY",
+    headline: "India's GDP Growth Surges to 7.2% in Q2 FY27",
+    source: "Economic Times", time: "2 hours ago",
+    what: "India's GDP grew at 7.2% in Q2 FY27, exceeding RBI's projection of 6.8%. Manufacturing and services sectors led the expansion, with manufacturing growing at 9.1% — its fastest pace in 11 quarters.",
+    when: [
+      { date: "Aug 14, 2026", event: "NSO releases Q2 FY27 GDP advance estimates" },
+      { date: "Aug 10, 2026", event: "RBI maintains repo rate at 6.25%, cites growth optimism" },
+      { date: "Jul 28, 2026", event: "PMI data signals manufacturing expansion for 14th consecutive month" },
+      { date: "Jun 15, 2026", event: "World Bank revises India growth forecast upward to 7.0%" },
+      { date: "May 31, 2026", event: "Q1 FY27 GDP came in at 6.9%, beating estimates" },
+    ],
+    how: [
+      { factor: "Manufacturing Boom", detail: "PLI schemes across 14 sectors drove ₹1.2L crore in new capex. Electronics and pharma exports surged 23% YoY.", confidence: 92 },
+      { factor: "Services Resilience", detail: "IT services stabilized after 2025 slowdown. Domestic digital payments crossed 18B monthly transactions.", confidence: 88 },
+      { factor: "Rural Recovery", detail: "Normal monsoon + MSP hikes boosted rural demand. FMCG rural volume growth hit 8.4%.", confidence: 85 },
+      { factor: "Global Tailwinds", detail: "US-China trade friction redirected $47B in FDI toward India in H1 2026.", confidence: 78 },
+    ],
+    who: [
+      { name: "Nirmala Sitharaman", role: "Finance Minister", stance: "Called it 'validation of structural reforms'. Hinted at capex boost in supplementary budget.", sentiment: "positive" },
+      { name: "Shaktikanta Das", role: "RBI Governor", stance: "Cautioned against 'growth exuberance'. Flagged food inflation as persistent risk.", sentiment: "cautious" },
+      { name: "Raghuram Rajan", role: "Former RBI Governor", stance: "Questioned GDP methodology. Urged focus on employment quality over headline numbers.", sentiment: "skeptical" },
+      { name: "IMF", role: "International body", stance: "Acknowledged India as fastest-growing large economy. Maintained 6.9% FY27 forecast.", sentiment: "neutral" },
+    ],
+    why: {
+      summary: "India's GDP surge reflects a convergence of supply-side reforms (PLI, infrastructure push) meeting recovering demand (rural + urban). However, the growth is structurally uneven — formal sector thriving while informal economy and employment lag. The sustainability hinges on three factors:",
+      deepFactors: [
+        { title: "Reform Payoff Cycle", detail: "PLI schemes launched 2020-22 are now in production phase. This is a 3-5 year cycle — the current bump is expected but may plateau by FY28." },
+        { title: "China+1 Dividend", detail: "India is the primary beneficiary of supply chain diversification. But this is competitive — Vietnam and Indonesia are also gaining. India's edge is scale, not inevitability." },
+        { title: "Consumption vs Investment", detail: "Growth is investment-led (govt capex + FDI), not consumption-led. For durability, household spending must pick up — which needs employment growth in the formal sector." },
+      ],
+      biasNote: "Coverage skew: Business outlets emphasize the positive headline. Opposition-aligned outlets highlight employment data gaps. International outlets focus on India vs China narrative."
+    }
+  },
+  {
+    id: 2, category: "GEOPOLITICS",
+    headline: "India Navigates New EU Carbon Border Tax on Steel Exports",
+    source: "Mint", time: "5 hours ago",
+    what: "The EU's Carbon Border Adjustment Mechanism (CBAM) enters its penalty phase in October 2026, imposing carbon tariffs on Indian steel, aluminum, and cement exports worth ~€4.2B annually. India calls it 'unilateral climate protectionism'.",
+    when: [
+      { date: "Aug 12, 2026", event: "EU confirms October 1 enforcement date for CBAM penalties" },
+      { date: "Jul 20, 2026", event: "India files formal objection at WTO calling CBAM discriminatory" },
+      { date: "Jun 2026", event: "Indian steel companies begin submitting emissions data to EU registry" },
+      { date: "Jan 2026", event: "CBAM transitional reporting period ends" },
+      { date: "Oct 2023", event: "CBAM transitional phase began" },
+    ],
+    how: [
+      { factor: "Direct Cost Impact", detail: "Indian steel faces €85-120/tonne carbon adjustment. This erodes the 15-20% cost advantage Indian exporters have over EU producers.", confidence: 95 },
+      { factor: "Trade Diversion", detail: "Some Indian steel may reroute to non-EU markets (Middle East, Africa) but at lower margins.", confidence: 82 },
+      { factor: "Green Steel Push", detail: "Tata Steel, JSW accelerating hydrogen-based steelmaking to qualify for CBAM exemptions by 2028-29.", confidence: 75 },
+      { factor: "WTO Challenge", detail: "India's WTO case argues CBAM violates MFN principles. Legal experts give it 40-50% success odds.", confidence: 60 },
+    ],
+    who: [
+      { name: "Piyush Goyal", role: "Commerce Minister", stance: "Called CBAM 'green protectionism'. Exploring retaliatory measures.", sentiment: "negative" },
+      { name: "T.V. Narendran", role: "Tata Steel CEO", stance: "Accelerating green steel timeline. Sees long-term opportunity in premium green products.", sentiment: "cautious" },
+      { name: "EU Commission", role: "Policy body", stance: "Defended CBAM as climate-neutral, non-discriminatory measure.", sentiment: "neutral" },
+    ],
+    why: {
+      summary: "CBAM represents the first major instance of climate policy becoming trade policy. For India, it's a structural challenge — the economy's energy mix is still 70% fossil-fuel dependent. The response will shape India's industrial strategy for a decade.",
+      deepFactors: [
+        { title: "Energy Transition Speed", detail: "India's green hydrogen mission targets 5 MT by 2030, but industrial adoption lags. Steel decarbonization needs $30-50B in investment." },
+        { title: "North-South Climate Divide", detail: "India frames CBAM as developed nations externalizing climate costs. This strengthens the Global South coalition but may not win at WTO." },
+        { title: "Competitive Positioning", detail: "Early movers on green steel (Tata, JSW) may gain EU market share. Laggards risk permanent exclusion from premium markets." },
+      ],
+      biasNote: "Indian outlets frame as trade aggression. European outlets frame as climate necessity. Business outlets focus on cost impact."
+    }
+  },
+  {
+    id: 3, category: "TECHNOLOGY",
+    headline: "India's Digital Public Infrastructure Model Adopted by 12 More Nations",
+    source: "Business Standard", time: "8 hours ago",
+    what: "Twelve additional countries across Africa and Southeast Asia have formally adopted India's DPI stack (Aadhaar-like ID, UPI-like payments, DigiLocker-like credentials). This brings the total to 28 nations using India-origin digital infrastructure.",
+    when: [], how: [], who: [],
+    why: { summary: "", deepFactors: [], biasNote: "" }
+  },
+];
+
+const WTabs = ["what", "when", "how", "who", "why"];
+const WLabels = { what: "What happened", when: "When — Timeline", how: "How it happened", who: "Who's involved", why: "Why it matters" };
+const WIcons = { what: "📰", when: "📅", how: "⚙️", who: "👥", why: "🧠" };
+
+function SentimentDot({ sentiment }) {
+  const colors = { positive: "#22C55E", cautious: "#F59E0B", skeptical: "#EF4444", negative: "#EF4444", neutral: "#8A8A9A" };
+  return React.createElement("span", { style: { display: "inline-block", width: 8, height: 8, borderRadius: "50%", backgroundColor: colors[sentiment] || colors.neutral, marginRight: 6 } });
+}
+
+function ConfidenceBar({ value }) {
+  return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 4 } },
+    React.createElement("div", { style: { flex: 1, height: 4, borderRadius: 2, backgroundColor: COLORS.border } },
+      React.createElement("div", { style: { width: value + "%", height: "100%", borderRadius: 2, backgroundColor: value > 85 ? COLORS.teal : value > 70 ? "#F59E0B" : COLORS.muted } })
+    ),
+    React.createElement("span", { style: { fontSize: 11, color: COLORS.muted, minWidth: 30 } }, value + "%")
+  );
+}
+
+function EmptyState({ label }) {
+  return <div style={{ padding: "40px 20px", textAlign: "center", color: COLORS.muted, fontSize: 14 }}>
+    <div style={{ fontSize: 32, marginBottom: 8 }}>🔄</div>{label}
+  </div>;
+}
+
+function WhatTab({ story }) {
+  return <div style={{ padding: "20px 0" }}>
+    <p style={{ fontSize: 15, lineHeight: 1.7, color: COLORS.navy, margin: 0 }}>{story.what}</p>
+    <div style={{ marginTop: 16, padding: "12px 16px", backgroundColor: COLORS.cardBg, borderRadius: 8, display: "flex", gap: 16, flexWrap: "wrap" }}>
+      <span style={{ fontSize: 12, color: COLORS.muted }}>Source: <strong style={{ color: COLORS.navy }}>{story.source}</strong></span>
+      <span style={{ fontSize: 12, color: COLORS.muted }}>{story.time}</span>
+      <span style={{ fontSize: 12, color: COLORS.teal }}>12 related articles found</span>
+    </div>
+  </div>;
+}
+
+function WhenTab({ story }) {
+  if (!story.when.length) return <EmptyState label="Timeline data loading..." />;
+  return <div style={{ padding: "20px 0" }}>
+    {story.when.map((e, i) => (
+      <div key={i} style={{ display: "flex", gap: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 12 }}>
+          <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: i === 0 ? COLORS.saffron : COLORS.teal, flexShrink: 0, marginTop: 5 }} />
+          {i < story.when.length - 1 && <div style={{ width: 2, flex: 1, backgroundColor: COLORS.border, minHeight: 40 }} />}
+        </div>
+        <div style={{ paddingBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.saffron, letterSpacing: 0.5 }}>{e.date}</div>
+          <div style={{ fontSize: 14, color: COLORS.navy, marginTop: 4, lineHeight: 1.5 }}>{e.event}</div>
+        </div>
+      </div>
+    ))}
+  </div>;
+}
+
+function HowTab({ story }) {
+  if (!story.how.length) return <EmptyState label="Analysis loading..." />;
+  return <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: 14 }}>
+    {story.how.map((f, i) => (
+      <div key={i} style={{ padding: "14px 16px", backgroundColor: COLORS.white, border: "1px solid " + COLORS.border, borderRadius: 10 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.navy }}>{f.factor}</div>
+        <p style={{ fontSize: 13, color: COLORS.muted, margin: "6px 0 0", lineHeight: 1.6 }}>{f.detail}</p>
+        <div style={{ marginTop: 6 }}>
+          <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: COLORS.muted }}>AI Confidence</span>
+          <ConfidenceBar value={f.confidence} />
+        </div>
+      </div>
+    ))}
+  </div>;
+}
+
+function WhoTab({ story }) {
+  if (!story.who.length) return <EmptyState label="Stakeholder analysis loading..." />;
+  return <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: 12 }}>
+    {story.who.map((p, i) => (
+      <div key={i} style={{ display: "flex", gap: 14, padding: "14px 16px", backgroundColor: COLORS.white, border: "1px solid " + COLORS.border, borderRadius: 10 }}>
+        <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: COLORS.cardBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+          {p.name.charAt(0)}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: COLORS.navy }}>{p.name}</span>
+            <span style={{ fontSize: 11, color: COLORS.muted }}>· {p.role}</span>
+          </div>
+          <p style={{ fontSize: 13, color: "#444", margin: "6px 0 0", lineHeight: 1.5 }}>{p.stance}</p>
+          <div style={{ marginTop: 6, display: "flex", alignItems: "center" }}>
+            <SentimentDot sentiment={p.sentiment} />
+            <span style={{ fontSize: 11, color: COLORS.muted, textTransform: "capitalize" }}>{p.sentiment}</span>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>;
+}
+
+function WhyTab({ story }) {
+  const w = story.why;
+  if (!w.summary) return <EmptyState label="Deep analysis loading..." />;
+  return <div style={{ padding: "20px 0" }}>
+    <p style={{ fontSize: 14, lineHeight: 1.7, color: COLORS.navy, margin: 0 }}>{w.summary}</p>
+    <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+      {w.deepFactors.map((d, i) => (
+        <div key={i} style={{ padding: "14px 16px", backgroundColor: COLORS.darkCard, borderRadius: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.saffron }}>{d.title}</div>
+          <p style={{ fontSize: 13, color: COLORS.lightText, margin: "8px 0 0", lineHeight: 1.6 }}>{d.detail}</p>
+        </div>
+      ))}
+    </div>
+    {w.biasNote && <div style={{ marginTop: 18, padding: "12px 16px", backgroundColor: "#FEF3C7", borderRadius: 8, borderLeft: "3px solid #F59E0B" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#92400E", textTransform: "uppercase", letterSpacing: 1 }}>Bias Alert</div>
+      <p style={{ fontSize: 12, color: "#78350F", margin: "4px 0 0", lineHeight: 1.5 }}>{w.biasNote}</p>
+    </div>}
+  </div>;
+}
+
+function StoryCard({ story, onClick, isActive }) {
+  return <button onClick={onClick} style={{
+    display: "block", width: "100%", textAlign: "left", cursor: "pointer",
+    padding: "16px 18px", backgroundColor: isActive ? COLORS.navy : COLORS.white,
+    border: "1px solid " + (isActive ? COLORS.navy : COLORS.border), borderRadius: 12,
+    transition: "all 0.2s", outline: "none",
+  }}>
+    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: isActive ? COLORS.saffron : COLORS.teal, marginBottom: 6 }}>{story.category}</div>
+    <div style={{ fontSize: 15, fontWeight: 700, color: isActive ? COLORS.white : COLORS.navy, lineHeight: 1.4 }}>{story.headline}</div>
+    <div style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 11, color: isActive ? "#9A9AB0" : COLORS.muted }}>
+      <span>{story.source}</span><span>·</span><span>{story.time}</span>
+    </div>
+  </button>;
+}
+
+function BharatLens() {
+  const [selectedStory, setSelectedStory] = useState(sampleStories[0]);
+  const [activeW, setActiveW] = useState("what");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const tabContent = { what: <WhatTab story={selectedStory} />, when: <WhenTab story={selectedStory} />, how: <HowTab story={selectedStory} />, who: <WhoTab story={selectedStory} />, why: <WhyTab story={selectedStory} /> };
+
+  return <div style={{ minHeight: "100vh", backgroundColor: COLORS.cream }}>
+    {/* Header */}
+    <header style={{ backgroundColor: COLORS.navy, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 22, fontWeight: 800, color: COLORS.white, letterSpacing: 2 }}>BHARATLENS</span>
+        <span style={{ fontSize: 10, color: COLORS.saffron, fontWeight: 600, padding: "2px 8px", border: "1px solid " + COLORS.saffron, borderRadius: 4, letterSpacing: 1 }}>BETA</span>
+      </div>
+      <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+        <span style={{ fontSize: 12, color: "#9A9AB0" }}>Daily Briefing</span>
+        <span style={{ fontSize: 12, color: "#9A9AB0" }}>My Topics</span>
+        <div style={{ width: 30, height: 30, borderRadius: "50%", backgroundColor: COLORS.teal, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: COLORS.white, fontWeight: 700 }}>A</div>
+      </div>
+    </header>
+
+    {/* Search */}
+    <div style={{ padding: "20px 24px", backgroundColor: COLORS.white, borderBottom: "1px solid " + COLORS.border }}>
+      <div style={{ maxWidth: 700, margin: "0 auto", position: "relative" }}>
+        <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder='Ask anything about India — "What is India doing about semiconductor manufacturing?"'
+          style={{ width: "100%", padding: "14px 18px 14px 44px", fontSize: 15, border: "2px solid " + COLORS.border, borderRadius: 12, backgroundColor: COLORS.cardBg, boxSizing: "border-box" }}
+        />
+        <span style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", fontSize: 18 }}>🔍</span>
+      </div>
+      <div style={{ maxWidth: 700, margin: "10px auto 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {["GDP Q2 results", "CBAM steel impact", "India DPI adoption", "Semiconductor policy"].map((t) => (
+          <button key={t} onClick={() => setSearchQuery(t)} style={{ padding: "5px 12px", fontSize: 11, color: COLORS.teal, backgroundColor: COLORS.white, border: "1px solid " + COLORS.border, borderRadius: 20, cursor: "pointer" }}>{t}</button>
+        ))}
+      </div>
+    </div>
+
+    {/* Main */}
+    <div style={{ display: "flex", maxWidth: 1200, margin: "0 auto", padding: "24px", gap: 24, flexWrap: "wrap" }}>
+      {/* Story list */}
+      <div style={{ width: 340, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>Top Stories Today</div>
+        {sampleStories.map((story) => (
+          <StoryCard key={story.id} story={story} isActive={selectedStory.id === story.id}
+            onClick={() => { setSelectedStory(story); setActiveW("what"); }} />
+        ))}
+      </div>
+
+      {/* Deep Dive */}
+      <div style={{ flex: 1, minWidth: 300 }}>
+        <div style={{ backgroundColor: COLORS.white, borderRadius: 14, border: "1px solid " + COLORS.border, overflow: "hidden" }}>
+          <div style={{ padding: "20px 24px", borderBottom: "1px solid " + COLORS.border }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: COLORS.teal, marginBottom: 6 }}>{selectedStory.category}</div>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: COLORS.navy, margin: 0, lineHeight: 1.4 }}>{selectedStory.headline}</h2>
+          </div>
+
+          {/* 5W Tabs */}
+          <div style={{ display: "flex", borderBottom: "1px solid " + COLORS.border, padding: "0 8px", overflowX: "auto" }}>
+            {WTabs.map((tab) => (
+              <button key={tab} onClick={() => setActiveW(tab)} style={{
+                padding: "14px 16px", fontSize: 13, fontWeight: activeW === tab ? 700 : 500,
+                color: activeW === tab ? COLORS.saffron : COLORS.muted,
+                backgroundColor: "transparent", border: "none", cursor: "pointer",
+                borderBottom: activeW === tab ? "3px solid " + COLORS.saffron : "3px solid transparent",
+                whiteSpace: "nowrap", transition: "all 0.15s",
+              }}>
+                <span style={{ marginRight: 6 }}>{WIcons[tab]}</span>{WLabels[tab]}
+              </button>
+            ))}
+          </div>
+
+          {/* Depth bar */}
+          <div style={{ padding: "12px 24px 0", display: "flex", gap: 4 }}>
+            {WTabs.map((tab, i) => (
+              <div key={tab} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: WTabs.indexOf(activeW) >= i ? COLORS.saffron : COLORS.border, transition: "background-color 0.3s" }} />
+            ))}
+          </div>
+          <div style={{ padding: "2px 24px 0", fontSize: 10, color: COLORS.muted, textAlign: "right" }}>Depth: {WTabs.indexOf(activeW) + 1}/5</div>
+
+          <div style={{ padding: "0 24px 24px" }}>{tabContent[activeW]}</div>
+        </div>
+
+        <div style={{ marginTop: 14, padding: "10px 16px", backgroundColor: COLORS.cardBg, borderRadius: 8, fontSize: 11, color: COLORS.muted, textAlign: "center" }}>
+          AI-generated analysis based on 500+ sources. Confidence scores reflect cross-reference density. Always verify with primary sources.
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(BharatLens));
+</script>
+</body>
+</html>
