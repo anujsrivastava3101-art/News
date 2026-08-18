@@ -67,15 +67,20 @@ function timeAgo(dateStr) {
 async function analyzeWith5W(story, geminiKey) {
   var prompt = 'You are BharatLens, an AI news analyst for India. Analyze this news story and return a JSON object with the 5W deep analysis. Be specific, factual, and India-focused.\n\nHEADLINE: ' + story.headline + '\nSOURCE: ' + story.source + '\nCONTENT: ' + story.content.substring(0, 2000) + '\n\nReturn ONLY valid JSON (no markdown, no backticks) in this exact format:\n{"what": "A clear 3-4 sentence summary of what happened, with key facts and numbers", "when": [{"date": "Date string", "event": "What happened on this date"}], "how": [{"factor": "Factor name", "detail": "1-2 sentence explanation", "confidence": 85}], "who": [{"name": "Person/Org name", "role": "Their role", "stance": "Their position on this", "sentiment": "positive|cautious|neutral|negative|skeptical"}], "why": {"summary": "2-3 sentences on why this matters for India", "deepFactors": [{"title": "Factor title", "detail": "2-3 sentence deep analysis"}], "biasNote": "1 sentence on how different outlets might frame this differently"}}\n\nRules:\n- "when" should have 3-5 timeline entries with plausible dates leading up to this story\n- "how" should have 3-4 causal factors with confidence scores (60-95)\n- "who" should have 3-4 key stakeholders\n- "why" should have 2-3 deep factors\n- Be specific to India. Use real names of Indian officials, companies, policies where relevant\n- Confidence scores: 90+ for well-established facts, 70-89 for likely factors, 60-69 for speculative';
 
-  var res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + geminiKey, {
+  var res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
     })
   });
-  if (!res.ok) throw new Error("Gemini API error: " + res.status);
+  if (!res.ok) {
+    var errBody = await res.text();
+    var errMsg = "Gemini API error: " + res.status;
+    try { var errJson = JSON.parse(errBody); if (errJson.error && errJson.error.message) errMsg += " — " + errJson.error.message; } catch(e) {}
+    throw new Error(errMsg);
+  }
   var data = await res.json();
   var text = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text || "";
   var cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
